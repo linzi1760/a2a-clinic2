@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  secondMeId   String   @unique
+  email        String?
+  name         String?
+  avatar       String?
+  interests    String[]
+  expertise    String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  cases        Case[]
+  consultations ConsultationExpert[]
+  
+  @@index([secondMeId])
+  @@index([expertise])
+}
+
+model Case {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String   // technical, academic, creative, life
+  urgency     Int      @default(3) // 1-5, 5最紧急
+  status      String   @default("pending") // pending, diagnosing, consulting, resolved, closed
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  diagnosis   Diagnosis?
+  consultations Consultation[]
+  solutions   Solution[]
+  
+  tags        String[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Diagnosis {
+  id          String   @id @default(cuid())
+  caseId      String   @unique
+  case        Case     @relation(fields: [caseId], references: [id])
+  
+  expertId    String
+  conversation Json    // 诊断对话记录
+  findings    Json     // 诊断发现
+  recommendations Json // 建议方案
+  confidence  Float    @default(0.8) // 诊断置信度 0-1
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([expertId])
+}
+
+model Consultation {
+  id          String   @id @default(cuid())
+  caseId      String
+  case        Case     @relation(fields: [caseId], references: [id])
+  
+  experts     ConsultationExpert[]
+  discussion  Json     // 讨论记录
+  finalSolution Solution?
+  
+  status      String   @default("active") // active, voting, finalized
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([caseId])
+  @@index([status])
+}
+
+model Solution {
+  id          String   @id @default(cuid())
+  caseId      String
+  case        Case     @relation(fields: [caseId], references: [id])
+  
+  content     String
+  steps       Json     // 步骤详情
+  resources   Json     // 相关资源
+  rating      Float?   // 用户评分
+  
+  isFinal     Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([caseId])
+  @@index([isFinal])
+}
+
+model ConsultationExpert {
+  id             String   @id @default(cuid())
+  consultationId String
+  consultation   Consultation @relation(fields: [consultationId], references: [id])
+  
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  
+  role           String   @default("participant") // leader, participant
+  status         String   @default("invited") // invited, accepted, declined, active
+  
+  joinedAt       DateTime?
+  leftAt         DateTime?
+  
+  createdAt      DateTime @default(now())
+  
+  @@unique([consultationId, userId])
+  @@index([userId])
+  @@index([consultationId])
+}
+
+model KnowledgeGraph {
+  id          String   @id @default(cuid())
+  sourceCaseId String?
+  title       String
+  content     String
+  tags        String[]
+  connections Json     // 关联的知识节点
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([tags])
+}
